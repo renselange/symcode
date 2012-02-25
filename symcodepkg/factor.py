@@ -76,6 +76,19 @@ class Factor:
 			
 		return new, math.sqrt(1.0 / var), trial			# return 3 values
 		
+	############################################## NEW ############################################	
+	def resid(self,atloc):
+	    n = len(self.answered)
+	    if n < 1: return 0.0,0.0,0
+	    sx, sxx = 0.0, 0.0
+	    for a in self.answered: 
+	        z   = a.resid(atloc,a.obs)
+	        sx  += z
+	        sxx += z * z
+	    var = (sxx - sx*sx/n)/n
+	    return sx/n,var,n
+	###############################################################################################
+		
 	def test1(self,atloc):						# for correctness testing only
 		for i in range(30):
 			item = Item(i,normal_in_range(-2,2,0,1),[0.0,0],"Cat%d" % (i % 3))

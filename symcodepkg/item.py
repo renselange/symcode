@@ -77,6 +77,17 @@ class Item:
 	 		sxx += fi * t
 	   	return sx, sxx - sx * sx						# defs of mean and var, right?
 	   	
+    ################################################# NEW #############################################
+    # Compute residual of obs at atloc
+    # Return <raw-residual>, <exptd value>, <exptd sd>, <std-residual>
+    
+	def resid(self,atloc,obs):
+		m,v = self.score_and_var(atloc)
+		s = math.sqrt(v)
+		d = obs - m         # positive if observation is "too high"
+		return d/s
+	###################################################################################################
+	   	
 	#--------------------------------------------------------------------------------------------------------
 	# Return a randomly drawn observation, given atloc and the item loc/step parms
 

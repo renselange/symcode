@@ -2,6 +2,7 @@
 from item import Item
 from factor import Factor
 from random import random
+import math
 import loaditemdat
 
 itembank = loaditemdat.loadfile('../data/itemdefs.txt')
@@ -88,8 +89,14 @@ class Multifactor:
     def allest(self):
         out = {}
         for k,f in self.facprob.iteritems():
-            fac = f[2]
-            out[k] = (len(fac.answered),fac.rawtorasch(fac.rawsum))
+            fac     = f[2]
+            if len(fac.answered) < 1: continue
+            est     = fac.rawtorasch(fac.rawsum)
+            ploc    = est[0]    # keep only the person estimate
+            pse     = est[1]
+            m,var,n = fac.resid(ploc)
+            print m,var,n
+            out[k] = (ploc,pse,m,var,n) # math.sqrt(var))
         return out
             
             
@@ -104,8 +111,8 @@ class Multifactor:
 m = Multifactor({'Fluency':0.3,'Spatial':0.5,'Reasoning': 0.2})
 f = m.assignsub('Fluency')
 m.addobs(Item(0,0.0,[0.0,0.0],cat=f),1)
-#f = m.assignsub('Spatial')
-#m.addobs(Item(0,0.0,[0.0,0.0],cat=f),1)
+f = m.assignsub('Spatial')
+m.addobs(Item(0,0.0,[0.0,0.0],cat=f),1)
 
 frq = {'Fluency':0,'Spatial':0,'Reasoning': 0}
 
