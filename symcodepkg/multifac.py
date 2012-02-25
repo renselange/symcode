@@ -1,11 +1,12 @@
 
 from item import Item
 from factor import Factor
-from random import random
+from random import random 
+from random import gauss
 import math
 import loaditemdat
 
-itembank = loaditemdat.loadfile('../data/itemdefs.txt')
+# itembank = loaditemdat.loadfile('../data/itemdefs.txt')
 
 
 ##########################################################################################################################
@@ -79,6 +80,7 @@ class Multifactor:
         else: vars = ['*',t]            # else use both
         
         for f in vars:
+            #print f,
             self.facprob[f][2].addobs(item,obs)
     
     # when computing ploc for next CAT move, use only the '*' factor        
@@ -87,17 +89,18 @@ class Multifactor:
         return f.rawtorasch(f.rawsum)
         
     def allest(self):
-        out = {}
+        out = dict([])
+        
         for k,f in self.facprob.iteritems():
-            fac     = f[2]
-            if len(fac.answered) < 1: continue
-            est     = fac.rawtorasch(fac.rawsum)
-            ploc    = est[0]    # keep only the person estimate
-            pse     = est[1]
-            m,var,n = fac.resid(ploc)
-            #print m,var,n
-            out[k] = (ploc,pse,m,var,n) # math.sqrt(var))
+            fac     = self.facprob[k][2]
+            t = fac.rawtorasch(fac.rawsum)
+            ploc = t[0]
+            res = fac.resid(ploc)
+            out[k] = {'est':t, 'fit':res} 
+            # print out[k]
+            
         return out
+        
             
             
 ##########################################################################################################################
@@ -107,6 +110,39 @@ class Multifactor:
 # To have next factor computed:             M.nextfac()             => 'Spatial'    (will update factor freq of 'Spatial')
 #
 ##########################################################################################################################
+
+def boundgauss(m,sd,wide):
+    while True:
+        t = gauss(m,sd)
+        if t < m-wide: continue
+        if t > m+wide: continue
+        return t
+        
+def simulate(pm,psd,pn,im,isd,itn,sub):
+    keys = sub.keys() + ['*']
+    keys = sorted(keys)
+    print ', v'.join(['act']+keys)
+
+    for p in xrange(pn):
+        m = Multifactor(sub)
+        ploc = boundgauss(pm,psd,2.5)
+        
+        for i in xrange(itn):
+            cat     = m.nextfac()
+            itloc   = boundgauss(im,isd,2.5)
+            it      = Item(i,itloc,[0.0,0.0],cat=cat)
+            obs     = it.randval(ploc)
+            m.addobs(it,obs)
+ 
+        print '%6.3f' % (ploc),
+        allv = m.allest() 
+        for k in keys:
+            print ',%6.3f' % (allv[k]['est'][0]),
+        print
+            
+simulate(0.5,1.5,100, 0.0,1.0,20, {'1':0.2,'2':0.2,'3':0.2, '4':0.4})
+'''
+    
         
 m = Multifactor({'Fluency':0.3,'Spatial':0.5,'Reasoning': 0.2})
 
@@ -115,6 +151,7 @@ frq = {'Fluency':0,'Spatial':0,'Reasoning': 0}
 print m.facprob
 
 for i in range(40):
+    ploc = boundgauss(0,1.5,1)
     f = m.nextfac()
     it = Item(0,0.0,[0.0,0.0],cat=f)
     print '>%s<'%f,
@@ -123,4 +160,4 @@ for i in range(40):
     
 #for n,e in m.facprob.iteritems():
 #    print n,len(e[2].answered)   
-#print m.facprob
+#print m.facprob'''
