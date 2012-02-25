@@ -95,7 +95,7 @@ class Multifactor:
             ploc    = est[0]    # keep only the person estimate
             pse     = est[1]
             m,var,n = fac.resid(ploc)
-            print m,var,n
+            #print m,var,n
             out[k] = (ploc,pse,m,var,n) # math.sqrt(var))
         return out
             
@@ -109,24 +109,18 @@ class Multifactor:
 ##########################################################################################################################
         
 m = Multifactor({'Fluency':0.3,'Spatial':0.5,'Reasoning': 0.2})
-f = m.assignsub('Fluency')
-m.addobs(Item(0,0.0,[0.0,0.0],cat=f),1)
-f = m.assignsub('Spatial')
-m.addobs(Item(0,0.0,[0.0,0.0],cat=f),1)
 
 frq = {'Fluency':0,'Spatial':0,'Reasoning': 0}
 
 print m.facprob
 
-for i in range(38):
+for i in range(40):
     f = m.nextfac()
     it = Item(0,0.0,[0.0,0.0],cat=f)
     print '>%s<'%f,
     m.addobs(it,it.randval(0.0))
-    # print m.catest()
     print m.allest()
     
-for n,e in m.facprob.iteritems():
-    print n,len(e[2].answered)
-    
+#for n,e in m.facprob.iteritems():
+#    print n,len(e[2].answered)   
 #print m.facprob
