@@ -77,16 +77,26 @@ class Factor:
 		return new, math.sqrt(1.0 / var), trial			# return 3 values
 		
 	############################################## NEW ############################################	
+	#
+	# Compute mean and var of residuals (=outfit)
+	#
+	
 	def resid(self,atloc):
 	    n = len(self.answered)
-	    if n < 1: return 0.0,0.0,0
+	    if n < 1: return 0.0,0.0,0              # there is stuff to compute?
+	    
 	    sx, sxx = 0.0, 0.0
-	    for a in self.answered: 
+	    
+	    for a in self.answered:                 # go through all items in this factor
 	        z   = a.resid(atloc,a.obs)
 	        sx  += z
 	        sxx += z * z
-	    var = (sxx - sx*sx/n)/n
-	    return sx/n,var,n
+	        
+	    if n > 1: var = (sxx - sx*sx/n)/(n-1)   # we allready know that n > 0
+        else: var = (sxx - sx*sx/n)/n           # n==1 -> best that can be done in this case
+          
+	    return sx/n,var,n-1                     # mean, outfit, df (n-1, that is)
+	    
 	###############################################################################################
 		
 	def test1(self,atloc):						# for correctness testing only

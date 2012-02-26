@@ -90,15 +90,20 @@ class Multifactor:
     
     # estimate person locs on all factors, incl '*' etc    
     def allest(self):
-        out = {} # dict([])
+        t       = self.facprob['*'][2]
+        rasch   = t.rawtorasch(t.rawsum)
+        ploc    = rasch[0]
+        fit     = t.resid(ploc)
+
+        out = {'*':{'est':rasch,'fit':fit}}
         
         for k,f in self.facprob.iteritems():# iterate through dict
+            if k == '*': continue
             fac     = self.facprob[k][2]    # dig out factor from dict item
             if len(fac.answered) > 0:       # check if this subfactor was used at all
                 t = fac.rawtorasch(fac.rawsum)  # get person estimate (<loc>,<se>,<niter>)
-                ploc = t[0]
-                res = fac.resid(ploc)           # compute fit stuff
-                out[k] = {'est':t, 'fit':res}   # didn't work using tuples => Python bug?
+                fit = fac.resid(ploc)           # compute fit stuff
+                out[k] = {'est':t, 'fit':fit}   # didn't work using tuples => Python bug?
             
         return out
         
@@ -127,8 +132,11 @@ def simulate(pm,psd,pn,im,isd,itn,sub):
     keys = sorted(keys)
     
     # its = [boundgauss(im,isd,2.5) for i in xrange(itn)] # keep same set of items across people
-
+    fout = open('simout.txt','w')
+    fout.write('trueloc,'+names+'\n')
+    
     for p in xrange(pn):
+        if p % 100 == 0: print 'PERS:',p
         m = Multifactor(sub)
         ploc = boundgauss(pm,psd,2.5)
         its = [boundgauss(im,isd,2.5) for i in xrange(itn)] # refresh set of items across people
@@ -139,22 +147,22 @@ def simulate(pm,psd,pn,im,isd,itn,sub):
             obs     = it.randval(ploc)
             m.addobs(it,obs)
  
-        print '%6.3f' % (ploc),
+        #print '%6.3f' % (ploc),
         allv = m.allest() 
-        for k in keys:
-            print ',%6.3f' % (allv[k]['est'][0]),
-        for k in keys:
-            print ',%6.3f' % (allv[k]['est'][1]),
-        for k in keys:
-            print ',%6.3f' % (allv[k]['fit'][0]),
-        for k in keys:
-            print ',%6.3f' % (allv[k]['fit'][1]),
-        print
-            
-simulate(0.5,1.5,1000, 0.0,1.0,25, {'1':0.2,'2':0.2,'3':0.2, '4':0.4})
-'''
-    
+        line = ','.join(['%6.3f'%ploc,
+                    ','.join(['%6.3f'%allv[k]['est'][0] for k in keys]),
+                    ','.join(['%6.3f'%allv[k]['est'][1] for k in keys]),
+                    ','.join(['%6.3f'%allv[k]['fit'][0] for k in keys]),
+                    ','.join(['%6.3f'%allv[k]['fit'][1] for k in keys])
+                    ])
+        fout.write(line+'\n')
         
+    fout.close()
+            
+simulate(0.5,1.5,10000, 0.0,1.0,25, {'1':0.2,'2':0.2,'3':0.2, '4':0.4})
+
+    
+'''        
 m = Multifactor({'Fluency':0.3,'Spatial':0.5,'Reasoning': 0.2})
 
 frq = {'Fluency':0,'Spatial':0,'Reasoning': 0}
