@@ -87,27 +87,26 @@ class Multifactor:
     def catest(self):
         f = self.facprob['*'][2]
         return f.rawtorasch(f.rawsum)
-        
+    
+    # estimate person locs on all factors, incl '*' etc    
     def allest(self):
-        out = dict([])
+        out = {} # dict([])
         
-        for k,f in self.facprob.iteritems():
-            fac     = self.facprob[k][2]
-            t = fac.rawtorasch(fac.rawsum)
-            ploc = t[0]
-            res = fac.resid(ploc)
-            out[k] = {'est':t, 'fit':res} 
-            # print out[k]
+        for k,f in self.facprob.iteritems():# iterate through dict
+            fac     = self.facprob[k][2]    # dig out factor from dict item
+            if len(fac.answered) > 0:       # check if this subfactor was used at all
+                t = fac.rawtorasch(fac.rawsum)  # get person estimate (<loc>,<se>,<niter>)
+                ploc = t[0]
+                res = fac.resid(ploc)           # compute fit stuff
+                out[k] = {'est':t, 'fit':res}   # didn't work using tuples => Python bug?
             
         return out
         
             
-            
 ##########################################################################################################################
 #
 # To create a new Multifactor:              M = Multifactor({'Fluency':0.3,'Spatial':0.5,'Reasoning': 0.2})
-# To use an item from a particular area:    M.assignsub('Fluency')  => 'Fluency'    (will update factor freq of 'Fluency')
-# To have next factor computed:             M.nextfac()             => 'Spatial'    (will update factor freq of 'Spatial')
+# To find the area most in need of items:   M.nextfac()             => 'Spatial'    (will update factor freq of 'Spatial')
 #
 ##########################################################################################################################
 
@@ -119,18 +118,24 @@ def boundgauss(m,sd,wide):
         return t
         
 def simulate(pm,psd,pn,im,isd,itn,sub):
+    names= sub.keys() 
+    names= sorted(names)
+    names= ',id'.join(['idall']+names)+',  '+',se'.join(['seall']+names)+',  '+',z'.join(['zall']+names)+',  '+',zz'.join(['zzall']+names)
+    print names
+    
     keys = sub.keys() + ['*']
     keys = sorted(keys)
-    print ', v'.join(['act']+keys)
+    
+    # its = [boundgauss(im,isd,2.5) for i in xrange(itn)] # keep same set of items across people
 
     for p in xrange(pn):
         m = Multifactor(sub)
         ploc = boundgauss(pm,psd,2.5)
+        its = [boundgauss(im,isd,2.5) for i in xrange(itn)] # refresh set of items across people
         
-        for i in xrange(itn):
+        for i in its:
             cat     = m.nextfac()
-            itloc   = boundgauss(im,isd,2.5)
-            it      = Item(i,itloc,[0.0,0.0],cat=cat)
+            it      = Item('',i,[0.0,0.0],cat=cat)
             obs     = it.randval(ploc)
             m.addobs(it,obs)
  
@@ -138,9 +143,15 @@ def simulate(pm,psd,pn,im,isd,itn,sub):
         allv = m.allest() 
         for k in keys:
             print ',%6.3f' % (allv[k]['est'][0]),
+        for k in keys:
+            print ',%6.3f' % (allv[k]['est'][1]),
+        for k in keys:
+            print ',%6.3f' % (allv[k]['fit'][0]),
+        for k in keys:
+            print ',%6.3f' % (allv[k]['fit'][1]),
         print
             
-simulate(0.5,1.5,100, 0.0,1.0,20, {'1':0.2,'2':0.2,'3':0.2, '4':0.4})
+simulate(0.5,1.5,1000, 0.0,1.0,25, {'1':0.2,'2':0.2,'3':0.2, '4':0.4})
 '''
     
         
