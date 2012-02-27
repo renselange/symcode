@@ -81,10 +81,10 @@ class Factor:
 	# determine if we are looking at an extreme low or high raw sum (sum = 0 or sum = max possible)
 	
 	def raw_lowest(self):  # lowest possible?
-	    return len(self.answered) == 0
+	    return self.rawsum == 0
 	    
 	def raw_highest(self):  # highest possible?
-	    return len(self.answered) == self.maxraw
+	    return self.rawsum == self.maxraw
 	    
 	def raw_extreme(self):
 	    return self.raw_lowest() or self.raw_highest()
@@ -124,12 +124,11 @@ class Factor:
 '''############################################## NEW #############################################
 #
 # determine if we are looking at an extreme low or high raw sum (sum = 0 or sum = max possible)
-
 def raw_lowest(self):  # lowest possible?
-    return len(self.answered) == 0
+    return self.rawsum == 0
     
 def raw_highest(self):  # highest possible?
-    return len(self.answered) == self.maxraw
+    return self.rawsum == self.maxraw
     
 def raw_extreme(self):
     return self.raw_lowest() or self.raw_highest()
@@ -156,6 +155,7 @@ def resid(self,atloc):
     return sx/n,var,n-1                     # mean, outfit, df (n-1, that is)
     
 ###############################################################################################
+'''
 
 from item import Item
 fac = Factor()
@@ -179,7 +179,7 @@ for loc in [-3.5,-2.0,-1.0,0.5,2.5,5.0]: # these are the hypothetical item locat
     print v,len(fac.answered),fac.resid(-1.0),fac.resid(0.0),fac.resid(2.0),
     print fac.rawtorasch(fac.rawsum) # just to be sure
     print
- 
+'''
 ######################## produces ##### lines with ? need not correspond exactly!!!!!! (due to differences in approximations when < 4 items)
 
 extreme? True True True
