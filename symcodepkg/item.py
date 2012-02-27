@@ -78,7 +78,7 @@ class Item:
 	   	return sx, sxx - sx * sx						# defs of mean and var, right?
 	   	
     ################################################# NEW #############################################
-    # Compute residual of obs at atloc
+    # Compute standardized residual of obs at atloc
     # Return <raw-residual>, <exptd value>, <exptd sd>, <std-residual>
     
 	def resid(self,atloc,obs):
@@ -112,3 +112,49 @@ class Item:
 	def show(self):
 		return 'Item %3s [cat="%s"] loc=%6.3f step range 0..%d = %s' % (self.itid,self.cat,self.loc,self.last,self.steps)
  	
+
+########################################################## TEST RUNS for res #####################################################
+'''#
+# added Feb 27, 2012
+
+################################################# NEW #############################################
+# Compute standardized residual of obs at atloc
+# Return <raw-residual>, <exptd value>, <exptd sd>, <std-residual>
+
+def resid(self,atloc,obs):
+	m,v = self.score_and_var(atloc)
+	s = math.sqrt(v)
+	d = obs - m         # positive if observation is "too high"
+	return d/s
+###################################################################################################
+
+
+################################################### driver code #################################
+it = Item(0,0.1,[0.0,-0.2,0.2],cat='XX')
+
+print it.cat
+
+for v in range(17): # this is Python: v goes 0..16
+    loc = v / 4.0-2
+    print '%6.3f,%12.3f,%12.3f,%12.3f' % (loc,it.resid(loc,0),it.resid(loc,1),it.resid(loc,2))
+########################### produces #########################    
+    XX
+    -2.000,      -0.390,       2.140,       4.671  << spacing may be off due to editor, should be no problem
+    -1.750,      -0.444,       1.794,       4.031
+    -1.500,      -0.506,       1.481,       3.468
+    -1.250,      -0.579,       1.198,       2.974
+    -1.000,      -0.664,       0.940,       2.544
+    -0.750,      -0.764,       0.704,       2.172
+    -0.500,      -0.883,       0.485,       1.853
+    -0.250,      -1.024,       0.278,       1.581
+     0.000,      -1.193,       0.079,       1.351
+     0.250,      -1.394,      -0.118,       1.157
+     0.500,      -1.632,      -0.319,       0.994
+     0.750,      -1.913,      -0.528,       0.858
+     1.000,      -2.242,      -0.750,       0.743
+     1.250,      -2.625,      -0.990,       0.646
+     1.500,      -3.068,      -1.252,       0.564
+     1.750,      -3.575,      -1.541,       0.493
+     2.000,      -4.153,      -1.860,       0.433
+'''
+    
