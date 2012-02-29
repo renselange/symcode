@@ -156,7 +156,7 @@ def resid(self,atloc):
     
 ###############################################################################################
 '''
-
+'''
 from item import Item
 fac = Factor()
 print 'extreme?',fac.raw_lowest(),fac.raw_highest(),fac.raw_extreme()
@@ -179,6 +179,7 @@ for loc in [-3.5,-2.0,-1.0,0.5,2.5,5.0]: # these are the hypothetical item locat
     print v,len(fac.answered),fac.resid(-1.0),fac.resid(0.0),fac.resid(2.0),
     print fac.rawtorasch(fac.rawsum) # just to be sure
     print
+    '''
 '''
 ######################## produces ##### lines with ? need not correspond exactly!!!!!! (due to differences in approximations when < 4 items)
 
