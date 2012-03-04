@@ -13,17 +13,11 @@ import loaditemdat
 
 class Multifactor:
     
-    def __init__(self,grade,facprob,itemfile): 
-         
+    def __init__(self,grade,facprob):  
     # facprob supposed to look like: {'Fluency':0.3,'Spatial':0.5,'Reasoning': 0.2}, an additional common factor '*' will always be added
     
-        self.faclist = {'*': {'prob':1.0,'ndone':0,'fac':Factor(),'curgrade':grade,'floc':0.0,'fse':0.0}}
-        
-        for Name,Prob in facprob.iteritems(): self.faclist[Name] = {'prob':Prob,'ndone':0,'fac':Factor(),'curgrade':grade,'floc':0.0,'fse':0.0} 
-        
-        self.table,self.grades,self.areas = loaditemdat.gradearea(itemfile)
-
-        
+        self.facprob = {'*': (0.0,0,Factor())}
+        for Name,Prob in facprob.iteritems(): self.facprob[Name] = (Prob,0,Factor(),grade) # for each factor, store <selection-prob>,<n-chosen>,<factor>,<current-grade>
     
     # randomly select one of the factor, regardless of anything ...   
     
@@ -70,8 +64,8 @@ class Multifactor:
                     min = dif   # max negative difference
                 
         self.xxxupdatefreq(sub)
-        return sub
-  
+        return sub 
+        
     # sometimes we may want to just pick an area  
     def assignsub(self,sub):
         self.xxxupdatefreq(sub)
@@ -112,12 +106,26 @@ class Multifactor:
                 out[k] = {'est':t, 'fit':fit}   # didn't work using tuples => Python bug?
             
         return out
+'''        
+    def fsm(self):
+        cond = None
+        while True:
+            c = (yield cond)
+            if c == 1: state = 1
+            else: state = 2
+            # print v
+            cond = state
+        
+    def def_fsm(self,tuple):    # (<current_state>,<condition>,<new_state>)
+        self.storefsm[tuple[0]] = (tuple[1],tuple[2])
+        
+    def run_fsm(self,old_state,condition):
+        t = self.storefsm[old_state]
+        return
+        
+        
+m = Multifactor({})       
 
-        
-        
-m = Multifactor(4,{'a':0.3,'b':0.7},'../data/itemdefs.txt')     
-# print m.faclist  
-'''
 f = m.fsm()
 f.next()
 print f
