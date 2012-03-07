@@ -3,8 +3,11 @@ from item import Item
 from factor import Factor
 from random import random 
 from random import gauss
+from random import choice
 import math
 import loaditemdat
+import copy
+import operator
 
 # itembank = loaditemdat.loadfile('../data/itemdefs.txt')
 
@@ -13,82 +16,97 @@ import loaditemdat
 
 class Multifactor:
     
+    ############################################## reset the item store ##################################################    
+    def reset_items(self):        
+        self.table,self.grades,self.areas = copy.deepcopy(self.itemstore)
+        self.useditems = []
+        
+    ###############################################  constructor  #######################################################    
     def __init__(self,grade,facprob,itemfile): 
          
     # facprob supposed to look like: {'Fluency':0.3,'Spatial':0.5,'Reasoning': 0.2}, an additional common factor '*' will always be added
     
-        self.faclist = {'*': {'prob':1.0,'ndone':0,'fac':Factor(),'curgrade':grade,'floc':0.0,'fse':0.0}}
+        self.faclist = {'*': {'prob':0.0,'nused':0,'fac':Factor(),'curgrade':grade,'floc':0.0,'fse':0.0}}
         
-        for Name,Prob in facprob.iteritems(): self.faclist[Name] = {'prob':Prob,'ndone':0,'fac':Factor(),'curgrade':grade,'floc':0.0,'fse':0.0} 
+        for Name,Prob in facprob.iteritems(): self.faclist[Name] = {'prob':Prob,'nused':0,'fac':Factor(),'curgrade':grade,'floc':0.0,'fse':0.0} 
         
-        self.table,self.grades,self.areas = loaditemdat.gradearea(itemfile)
-
+        self.itemstore = loaditemdat.gradearea(itemfile)    # store the original list with all items. Within cells, items are sorted by loc
         
-    
-    # randomly select one of the factor, regardless of anything ...   
-    
-    def xxxrandfac(self): # used to make the first choice
-        r = random()
-        c = 0.0
-        t = ''
-    # looks like: '*': (0.0, 0, <factor.Factor instance at 0x105526710>)
-        for Name,Tup in self.facprob.iteritems():
-            if Name == '*': continue    # Skip the "all" category ...
-            t = Name
-            c += Tup[0]
-            if c > r: return t 
-        return t     # we might get here due to accumulated rounding errors
-    
-    # find the factor whose selection brings observed and wanted proportions max closer 
-    # also update the frequency with which factor now selected
-    # the sequence is deterministic, given the first few (3?) randomly selected items
-    # EX: for six subfactors, this yields 3C6 possible orders = 120/6 = 20, good enough ...
-    
-    def xxxupdatefreq(self,sub):
-        for f in ['*',sub]:
-            if sub == '': continue
-            t = self.facprob[f]
-            self.facprob[f] = (t[0],t[1]+1,t[2])    # prop-wanted, freq-used, factor
-      
-    def xnextcat(self): # also UPDATE THE USAGE COUNTS
+        self.reset_items()                                  # must be called whenever starting from scratch
         
-        if len(self.facprob) == 1: return ''
-              
-        n = self.facprob['*'][1]
+        # print '\n\nCheck on sorted cells:',self.table[8]['EE'][0].loc,'lower than',self.table[8]['EE'][-1].loc
         
-        if n < 5: 
-            sub  = self.xxxrandfac() # first few times around select at random
-        else:    
-            min = 2.0
-            sub = ''
+    ######################################## Really should be a separate method  ########################################
+        better = False
+        self.fatal  = False
+        
+        print; print
+        for a in self.areas:
+            if not a in facprob: print 'WARNING: Sub-area occurs in Item DB, but will not be used:',a ; better = True
             
-            for Name,Tup in self.facprob.iteritems():
-                if Name == '*': continue
-                dif = float(Tup[1])/n - Tup[0] # observed - desired proportion
-                if dif < min:
-                    sub = Name  # name of last min-est factor
-                    min = dif   # max negative difference
-                
-        self.xxxupdatefreq(sub)
-        return sub
-  
-    # sometimes we may want to just pick an area  
-    def assignsub(self,sub):
-        self.xxxupdatefreq(sub)
-        return sub
+        tot = 0.0
+        for a in facprob: 
+            if not a in self.areas: print 'FATAL: Sub-area was specified, but does not occur in Item DB:',a ; better = True; self.fatal = True
+            else: tot += self.faclist[a]['prob'] # facprob[a]
+        if better: print '***** Better make sure!'
         
-    def addobs(self,item,obs=-1):
-        t = item.cat
-        # t = ''
-    # add to general freq '*' and to the subfactor of the item (item.cat)
-    # '*' and '' indicated "main" factor, but should not be doubled
-        if t in ['*','']: vars = ['*']  # no subfactors are used if item.cat == ''
-        else: vars = ['*',t]            # else use both
+        if len(self.faclist) == 1: tot = 1.0
+        print tot
         
-        for f in vars:
-            #print f,
-            self.facprob[f][2].addobs(item,obs)
+        if abs(tot-1.0) > 0.01:
+            print 'FATAL: Selection probabilities of retained sub-areas do not sum to 1.0, but to %6.4f instead'%tot
+            print facprob
+            self.fatal = True
+        if self.fatal: print '*** FATAL errors discovered, program exits'
+        
+    ############################################### find factor most in need ###########################################
     
+    def factorpriority(self):
+    
+    # no sub-areas => use only '*'
+        if len(self.faclist) == 1:
+            return ('*',['*'],[('*',0.0)])
+            
+    # there are sub-areas
+        totdone = len(self.useditems)               # total used
+        facpdone = {}
+    
+    # looks like: {'*': {'prob':0.0,'nused':0,'fac':Factor(),'curgrade':grade,'floc':0.0,'fse':0.0}, 'FF': {...}, ...}
+        
+        for key,fac in self.faclist.iteritems():    # include '*' 
+            facdone = fac['nused']
+            
+            if totdone == 0: pdone = 0.0
+            else: pdone   = facdone / float(totdone)
+            
+            facpdone[key] = pdone - fac['prob'] # for '*', fac['prob] = 0.0
+            
+    # we now know which proportion of items each factor received. 
+    # now sort factors by above proportion to get priority queue
+    # see: http://stackoverflow.com/questions/613183/python-sort-a-dictionary-by-value
+
+        t = []
+        s = sorted(facpdone.iteritems(),key=operator.itemgetter(1)) # result looks like: [('F',0.333),('HH',0.222), ...]
+        for v in s:
+            if v[1] != s[0][1]: break           # done if not an exact tie
+            t.append(v[0])                      # store name only
+            
+    # return: 1=<randomly select one from neediest ties>, 2=<list of ties>, 3=<all probs>
+    # for instance: ('F', ['EE', 'F'], [('EE', 0.5), ('F', 0.5), ('*', 1.0)])
+    # for choice, see: http://stackoverflow.com/questions/306400/how-do-i-randomly-select-an-item-from-a-list-using-python
+    
+        return choice(t),t,s        # choice randomly selects one of the tied sub-cats
+        
+    ################################### select a factor and update its usage count ####################################
+    def use_this_factor(self,facid): # << change to accept items rather than facid????
+        t = self.faclist[facid]
+        t['nused'] += 1
+        t = self.faclist['*']
+        t['nused'] += 1
+        self.useditems.append(0)
+        return t['fac']
+            
+
     # when computing ploc for next CAT move, use only the '*' factor        
     def facest(self):
         f = self.facprob['*'][2]
@@ -115,8 +133,17 @@ class Multifactor:
 
         
         
-m = Multifactor(4,{'a':0.3,'b':0.7},'../data/itemdefs.txt')     
-# print m.faclist  
+m = Multifactor(4,{'G':0.5,'F':0.5},'../data/itemdefs.txt')  # {'EE':0.5,'F':0.5},'../data/itemdefs.txt') 
+'''m.use_this_factor('F')
+print m.factorpriority()
+m.use_this_factor('EE')
+print m.factorpriority()
+m.use_this_factor('EE')
+print m.factorpriority()
+m.use_this_factor('F')'''
+print m.factorpriority()
+ 
+
 '''
 f = m.fsm()
 f.next()
