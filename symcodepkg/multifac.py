@@ -102,7 +102,78 @@ class Multifactor:
 
         return sorted(facpdone.iteritems(),key=operator.itemgetter(1)) # result looks like: [('F',-0.333),('HH',0.222), ..., ('*',1.1)]
     
+    
+    ######################################################################################################
+    # Little helper that returns a list of range of item locs by grade
+    # It also return the first grade that has items ... (starting from current grade)
+    
+    def start_grade(self,subfac):
+        
+        t = [(False,0,0)]*10                            # since the last element is -1, this covers grades 0=KG,1,...,8,-1=PK
+        
+        for g in range(-1,9):                           # we are looking at the table column with subfac as label
+            f = self.table[g][subfac]
+            if len(f) > 0: t[g] = (True,f[0].loc,f[-1].loc)     # True means that there were items left for this grade, False = no
+            
+        # t looks like: [(True, -9.59, -0.98), (True, -9.66, 0.24), ..., (True, -6.83, -2.03)], ignore when False ...
+        
+        curgrade = self.faclist[subfac]['curgrade']     # just easier to look at later
+        
+        for g in range(curgrade,-2,-1): # starting at current grade, if need be go down to -1 to find a valid range
+            if t[g][0]: return g,t      # t[g] will look like: (True, ...,...)
+            
+        for g in range(curgrade+1,9):     # nothing was found at or below, now try higher if need be
+            if t[g][0]: return g,t
+        
+        return curgrade,t               # t[curgrade] will look like (False,..,..)
+    
+    ####################################################################################################
+    # Starting at grade, we find a grade with items whose locations cover wanted_loc
+        
+    def next_grade(self,grade,occur_List,wanted_loc):
+        pass
+            
+            
+    ######################################################################################################
+    # get the next item to be administered, given the location being wanted
+    
     def nextitem(self,wanted_loc):
+        for p,wanted in enumerate(self.factorpriority()):       # go through sub-areas [factors] in order of their priority, see above
+        
+            subfac          = wanted[0]                         # name of next sub-area (e.g., 'F')
+            
+        # find starting grade for this sub-factor to start looking
+            grade,occurs    = self.start_grade(subfac)          # get grade and list of item loc range by grade: 6, [(True, -9.59, -0.98), (True, -9.66, 0.24), ..., (True, -6.83, -2.03)] 
+            if not occurs[grade][0]: continue                   # check if a grade was identified ...
+            print subfac,grade,occurs
+         
+            
+        # we try at most twice for this subfac: 
+        # 1x if wanted_loc is in range, 
+        # 2x if not in range, and we go up or down (once)
+        
+            for iter in range(2):                                   # iter goes: 0 and 1, not 2 (this is Python!)
+                factor      = self.faclist[subfac]                  # to keep the notation easier
+                curgrade    = factor['curgrade']                    # last grade used for this sub-area - may differ by sub-area
+                t           = self.table[curgrade][subfac]          # easier table access
+                
+                if len(t) > 0:                                      # are there any items left at this grade x sub-area combination?
+                    minloc = t[0].loc                               # lowest item loc in remaining list
+                    maxloc = t[-1].loc                              # highest item loc in remaining list
+                
+                    print p,wanted,subfac,curgrade,'min',minloc,'loc',wanted_loc,'max',maxloc,
+
+                    if wanted_loc < minloc and curgrade >= -1:
+                        print 'Look at items from lower grades'
+                        factor['curgrade'] -= 1
+                    elif wanted_loc > maxloc and curgrade <= 8: 
+                        print 'Look at items from higher grades'
+                        factor['curgrade'] += 1
+                    else:
+                        print 'Select item from current range'
+                        return
+    
+    def xnextitem(self,wanted_loc):
         for p,wanted in enumerate(self.factorpriority()):       # go through factors in order of their priority, see above
             subfac      = wanted[0]                             # highest priority factor
             curgrade    = self.faclist[subfac]['curgrade']      # last grade used - may differ by sub-area
