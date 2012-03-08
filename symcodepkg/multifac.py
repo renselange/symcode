@@ -105,7 +105,9 @@ class Multifactor:
     
     ######################################################################################################
     # Little helper that returns a list of range of item locs by grade
-    # It also return the first grade that has items ... (starting from current grade)
+    # It also return the first grade that has items ... (favoring strongly ['curgrade'] )
+    # The search starts at current grade, and goes down
+    # If no items are found that way, then the search only 1 higher grade
     
     def start_grade(self,subfac):
         
@@ -119,22 +121,74 @@ class Multifactor:
         
         curgrade = self.faclist[subfac]['curgrade']     # just easier to look at later
         
-        for g in range(curgrade,-2,-1): # starting at current grade, if need be go down to -1 to find a valid range
-            if t[g][0]: return g,t      # t[g] will look like: (True, ...,...)
+        for g in range(curgrade,-2,-1):                 # starting at current grade, if need be go down to -1 to find a valid range
+            if t[g][0]: return g,t                      # t[g] will look like: (True, ...,...)
             
-        for g in range(curgrade+1,9):     # nothing was found at or below, now try higher if need be
+        for g in range(curgrade+1,curgrade+2):          # nothing was found at or below, now try higher if need be
             if t[g][0]: return g,t
         
-        return curgrade,t               # t[curgrade] will look like (False,..,..)
+        return curgrade,t                               # t[curgrade] will look like (False,..,..)
     
     ####################################################################################################
-    # Starting at grade, we find a grade with items whose locations cover wanted_loc
+    # Starting at grade, we look for a grade with items whose locations include wanted_loc
+    # If there are any items to be had, the closest grade will be selected
+    # Search does not go over current grade + 1
         
-    def next_grade(self,grade,occur_List,wanted_loc):
-        pass
+    def next_grade(self,start_grade,occur_list,wanted_loc):
+        
+        minv    = 100000.0      # as a last ditch effort, also find grade closest to wanted_loc
+        at      = 99            # best grade
+    
+    # go down from current grade    
+    
+        for g in range(start_grade,-2,-1):
+            t = occur_list[g]
+            if t[0]:
+                d = min(abs(wanted_loc - t[1]), abs(wanted_loc - t[2])) # closest to lowest or highest val
+                if d < minv:
+                    d = minv
+                    at = g
+                if t[1] <= wanted_loc <= t[2]: return True,g    # returns (True,grade)
+    
+    # check next grade up - keep "range" for easy changes later
+    
+        for g in range(start_grade+1,start_grade+2):    # go up at most one grade
+            t = occur_list[g]
+            if t[0]:
+                d = min(abs(wanted_loc - t[1]), abs(wanted_loc - t[2]))
+                if d < minv:
+                    d = minv
+                    at = g
+                if t[1] <= wanted_loc <= t[2]: return True,g
+                
+    # return closest, if something (anything!) was found (iff "at" was changed)
+        if at != 99: return True,at
+             
+     # sorry, nothing found           
+        return False,0
+        
+    ##################################################################################################################
+    # within table[grade][subfac] identify the item closest to wanted_loc, and remove this item from table cell
+    
+    def get_and_remove_item(self,grade,subfac,wanted_loc):
+        
+        t = self.table[grade][subfac]   # this is a sorted list of items in cell [grade][subfac] (by loc)
+        at   = 0
+        
+        if len(t) > 1:          # at stays 0 if there is only one item in the list
+            minv = 10000.0      # will always be undercut
+            
+            for iv,item in enumerate(t): 
+                d = abs(item.loc - wanted_loc)
+                if d < minv: 
+                    minv = d
+                    at = iv
+                else: break     # remember: the items are sorted low->high by their locations
+                
+        return t.pop(at)        # remove item "at" from list, and return this item
             
             
-    ######################################################################################################
+    #################################################################################################################
     # get the next item to be administered, given the location being wanted
     
     def nextitem(self,wanted_loc):
@@ -144,54 +198,12 @@ class Multifactor:
             
         # find starting grade for this sub-factor to start looking
             grade,occurs    = self.start_grade(subfac)          # get grade and list of item loc range by grade: 6, [(True, -9.59, -0.98), (True, -9.66, 0.24), ..., (True, -6.83, -2.03)] 
-            if not occurs[grade][0]: continue                   # check if a grade was identified ...
-            print subfac,grade,occurs
-         
+            if not occurs[grade][0]: continue                   # check if a starting grade was identified ... (strongly favors 'curgrade')
+                                                                # print subfac,grade,occurs,self.next_grade(grade,occurs,0.0)
             
-        # we try at most twice for this subfac: 
-        # 1x if wanted_loc is in range, 
-        # 2x if not in range, and we go up or down (once)
-        
-            for iter in range(2):                                   # iter goes: 0 and 1, not 2 (this is Python!)
-                factor      = self.faclist[subfac]                  # to keep the notation easier
-                curgrade    = factor['curgrade']                    # last grade used for this sub-area - may differ by sub-area
-                t           = self.table[curgrade][subfac]          # easier table access
-                
-                if len(t) > 0:                                      # are there any items left at this grade x sub-area combination?
-                    minloc = t[0].loc                               # lowest item loc in remaining list
-                    maxloc = t[-1].loc                              # highest item loc in remaining list
-                
-                    print p,wanted,subfac,curgrade,'min',minloc,'loc',wanted_loc,'max',maxloc,
-
-                    if wanted_loc < minloc and curgrade >= -1:
-                        print 'Look at items from lower grades'
-                        factor['curgrade'] -= 1
-                    elif wanted_loc > maxloc and curgrade <= 8: 
-                        print 'Look at items from higher grades'
-                        factor['curgrade'] += 1
-                    else:
-                        print 'Select item from current range'
-                        return
-    
-    def xnextitem(self,wanted_loc):
-        for p,wanted in enumerate(self.factorpriority()):       # go through factors in order of their priority, see above
-            subfac      = wanted[0]                             # highest priority factor
-            curgrade    = self.faclist[subfac]['curgrade']      # last grade used - may differ by sub-area
-            t           = self.table[curgrade][subfac]          # easier table access
-            if len(t) > 0:                                      # are there any items left at this grade?
-                minloc = t[0].loc                               # lowest item loc in remaining list
-                maxloc = t[-1].loc                              # highest item loc in remaining list
-                
-                print p,wanted,subfac,curgrade,'min',minloc,'loc',wanted_loc,'max',maxloc,
-
-                if wanted_loc < minloc:
-                    print 'Look at lower grade items'
-                elif wanted_loc > maxloc: 
-                    print 'Look at items from higher grades'
-                else:
-                    print 'Item found, in range'
-                    return
-
+            found,grade = self.next_grade(grade,occurs,wanted_loc)      # given a start grade, find the optimal grade
+            if not found: break                                         # nothing found, go to next factor
+            return self.get_and_remove_item(grade,subfac,wanted_loc)    # done
         
 
     ################################### select a factor and update its usage count ####################################
