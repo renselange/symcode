@@ -23,9 +23,10 @@ class Multifactor:
         self.useditems = []
         
     ###############################################  constructor  #######################################################    
-    def __init__(self,grade,facprob,itemfile): 
+    def __init__(self,grade,facprob,condition,itemfile): 
         
         self.studgrade = grade
+        self.condition = condition
          
     # facprob supposed to look like: {'Fluency':0.3,'Spatial':0.5,'Reasoning': 0.2}, an additional common factor '*' will always be added
     
@@ -188,7 +189,21 @@ class Multifactor:
                 
         self.faclist[subfac]['curgrade'] = grade    # to avoid big jumps, start from this grade the next time    
         
-        return t.pop(at)        # remove item "at" from list, and return this item
+        it      = t.pop(at)     # remove item "at" from list, and return this item later
+        
+        itid    = it.itid       # also remove from '*'
+        t       = self.table[grade]['*']
+        at      = -1
+        
+        for iv,i in enumerate(t):
+            if i.itid == itid:
+                at = iv
+                break
+                
+        if at == -1: print 'Error in get_and_remove_item'
+                
+        return t.pop(at)
+        
             
             
     #################################################################################################################
@@ -207,7 +222,7 @@ class Multifactor:
             found,grade = self.next_grade(grade,occurs,wanted_loc)      # given a start grade, find the optimal grade
             if not found: continue                                      # nothing found, go to next factor
             # print grade
-            return self.get_and_remove_item(grade,subfac,wanted_loc)    # done
+            return self.get_and_remove_item(grade,subfac,wanted_loc)    # done       
 
     #################################################################################################################
     # when computing ploc for next CAT move, use only the '*' factor        
@@ -234,10 +249,27 @@ class Multifactor:
                 out[k] = {'est':t, 'fit':fit}   # didn't work using tuples => Python bug?
             
         return out
-
         
         
-m = Multifactor(4,{'G':0.5,'F':0.5},'../data/itemdefs.txt')  # {'EE':0.5,'F':0.5},'../data/itemdefs.txt') 
+    def one_sim(self,ploc):        
+        self.reset_items()
+        grade = max(self.studgrade - 3,-1)  # don't go below -1        
+        
+        for v in range(3):
+            plist = self.factorpriority()   # this will randomly reshuffle the order of the sub-factors
+            
+            for p in plist:                 # p looks like: ('F', -1.3, 2.2)
+                subfac = p[0]
+                t = self.table[grade][subfac]
+                if len(t) > 0:              # is there an item of this type? Note: There is always '*'
+                    low     = p[1]
+                    high    = p[2]
+                    it = self.get_and_remove_item(g,subfac,(low+high)/2.0)
+        
+        # return '%5d\n'%(n)
+    
+        
+m = Multifactor(4,{'G':0.5,'F':0.5},1,'../data/itemdefs.txt')  # {'EE':0.5,'F':0.5},'../data/itemdefs.txt') 
 print m.nextitem(2.0).show()
 print m.nextitem(2.0).show()
 print m.nextitem(2.0).show()
