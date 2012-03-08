@@ -268,13 +268,15 @@ class Multifactor:
         for f in vars: self.faclist[f]['fac'].addobs(item,obs)
         
     ###############################################################################################################
+    # Simulate a single person taking a test
+    # Return a list of strings representing the simulation results
     #
         
     def one_sim(self,ploc):        
         self.reset_items()
         grade = max(self.studgrade - 3,-1)  # don't go below -1   
              
-    #################### First, do "administer" three bootstrap items
+    ######################### First, do "administer" three bootstrap items #################
       
         for v in range(3):
             plist = self.factorpriority()   # this will randomly reshuffle the order of the sub-factors
@@ -291,14 +293,14 @@ class Multifactor:
                     obs = it.randval(ploc)              # get an "empirical observation" (at least, a simulated one)
                     self.addobs(it,obs)                 # add to factor for later estimation
                     
-                    correct = (obs == len(it.steps)-1)  # correct if highest response category was reached
+                    correct = (obs == len(it.steps)-1)  # correct iff highest response category was reached
                     
                     print grade,it.steps,obs,correct,
                     if correct and grade <= self.studgrade: grade += 1 # no more than up to 1 higher
                     print grade
                     break
                     
-    # set all factor grades to the last bootstrapped grade
+        # set ALL factor grades to the last bootstrapped grade
         for _,f in self.faclist.iteritems(): f['curgrade'] = grade
                     
     #################### Second, we are now ready for the actual CAT part
