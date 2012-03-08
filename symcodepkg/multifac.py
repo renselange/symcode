@@ -4,6 +4,7 @@ from factor import Factor
 from random import random 
 from random import gauss
 from random import choice
+from random import uniform
 import math
 import loaditemdat
 import copy
@@ -23,10 +24,12 @@ class Multifactor:
         
     ###############################################  constructor  #######################################################    
     def __init__(self,grade,facprob,itemfile): 
+        
+        self.studgrade = grade
          
     # facprob supposed to look like: {'Fluency':0.3,'Spatial':0.5,'Reasoning': 0.2}, an additional common factor '*' will always be added
     
-        self.faclist = {'*': {'prob':0.0,'nused':0,'fac':Factor(),'curgrade':grade,'floc':0.0,'fse':0.0}}
+        self.faclist = {'*': {'prob':-1.1,'nused':0,'fac':Factor(),'curgrade':grade,'floc':0.0,'fse':0.0}}
         
         for Name,Prob in facprob.iteritems(): self.faclist[Name] = {'prob':Prob,'nused':0,'fac':Factor(),'curgrade':grade,'floc':0.0,'fse':0.0} 
         
@@ -35,12 +38,18 @@ class Multifactor:
         self.reset_items()                                  # must be called whenever starting from scratch
         
         # print '\n\nCheck on sorted cells:',self.table[8]['EE'][0].loc,'lower than',self.table[8]['EE'][-1].loc
+        # print
+        # for ii,i in enumerate(self.table[8]['EE']):
+        #    print ii,i.show()
         
     ######################################## Really should be a separate method  ########################################
         better = False
         self.fatal  = False
         
         print; print
+        print 'Usage and priority:',facprob
+        print 'Student grade',self.studgrade
+        print
         for a in self.areas:
             if not a in facprob: print 'WARNING: Sub-area occurs in Item DB, but will not be used:',a ; better = True
             
@@ -59,44 +68,61 @@ class Multifactor:
             self.fatal = True
         if self.fatal: print '*** FATAL errors discovered, program exits'
         
-    ############################################### find factor most in need ###########################################
+    ############################################### sort area / factor by being most in need ###########################################
+    # also works if no sub-areas were specified: {}
+    # if no items were yet selected, then pick one area at random
     
     def factorpriority(self):
     
     # no sub-areas => use only '*'
         if len(self.faclist) == 1:
-            return ('*',['*'],[('*',0.0)])
+            return ('*',['*'],[('*',1.1)])          # if there are no sub-areas, we're done
             
     # there are sub-areas
         totdone = len(self.useditems)               # total used
         facpdone = {}
     
-    # looks like: {'*': {'prob':0.0,'nused':0,'fac':Factor(),'curgrade':grade,'floc':0.0,'fse':0.0}, 'FF': {...}, ...}
+    # looks like: {'*': {'prob':-1.1,'nused':0,'fac':Factor(),'curgrade':grade,'floc':0.0,'fse':0.0}, 'FF': {...}, ...}
         
         for key,fac in self.faclist.iteritems():    # include '*' 
             facdone = fac['nused']
             
-            if totdone == 0: pdone = 0.0
-            else: pdone   = facdone / float(totdone)
+            if totdone == 0: pdone = uniform(-0.001,0.001)
+            else: pdone   = facdone / float(totdone) + uniform(-0.001,0.001) # add small perturbation
             
+            # will be smallest (and negative) for most needy factor
             facpdone[key] = pdone - fac['prob'] # for '*', fac['prob] = 0.0
             
     # we now know which proportion of items each factor received. 
     # now sort factors by above proportion to get priority queue
     # see: http://stackoverflow.com/questions/613183/python-sort-a-dictionary-by-value
+    # the small perturbation causes random ordering of identical values
+    # we now get areas / factors in order of neediness. this is done so that we always know which one to pick when a sub=area is exhausted
+    # the last element is always '*' - so we can pick any item, if need be ...
 
-        t = []
-        s = sorted(facpdone.iteritems(),key=operator.itemgetter(1)) # result looks like: [('F',0.333),('HH',0.222), ...]
-        for v in s:
-            if v[1] != s[0][1]: break           # done if not an exact tie
-            t.append(v[0])                      # store name only
-            
-    # return: 1=<randomly select one from neediest ties>, 2=<list of ties>, 3=<all probs>
-    # for instance: ('F', ['EE', 'F'], [('EE', 0.5), ('F', 0.5), ('*', 1.0)])
-    # for choice, see: http://stackoverflow.com/questions/306400/how-do-i-randomly-select-an-item-from-a-list-using-python
+        return sorted(facpdone.iteritems(),key=operator.itemgetter(1)) # result looks like: [('F',-0.333),('HH',0.222), ..., ('*',1.1)]
     
-        return choice(t),t,s        # choice randomly selects one of the tied sub-cats
+    def nextitem(self,wanted_loc):
+        for p,wanted in enumerate(self.factorpriority()):       # go through factors in order of their priority, see above
+            subfac      = wanted[0]                             # highest priority factor
+            curgrade    = self.faclist[subfac]['curgrade']      # last grade used - may differ by sub-area
+            t           = self.table[curgrade][subfac]          # easier table access
+            if len(t) > 0:                                      # are there any items left at this grade?
+                minloc = t[0].loc                               # lowest item loc in remaining list
+                maxloc = t[-1].loc                              # highest item loc in remaining list
+                
+                print p,wanted,subfac,curgrade,'min',minloc,'loc',wanted_loc,'max',maxloc,
+
+                if wanted_loc < minloc:
+                    print 'Look at lower grade items'
+                elif wanted_loc > maxloc: 
+                    print 'Look at items from higher grades'
+                else:
+                    print 'Item found, in range'
+                    return
+
         
+
     ################################### select a factor and update its usage count ####################################
     def use_this_factor(self,facid): # << change to accept items rather than facid????
         t = self.faclist[facid]
@@ -141,7 +167,8 @@ print m.factorpriority()
 m.use_this_factor('EE')
 print m.factorpriority()
 m.use_this_factor('F')'''
-print m.factorpriority()
+#print m.factorpriority()
+m.nextitem(1)
  
 
 '''

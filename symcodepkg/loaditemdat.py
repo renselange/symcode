@@ -76,10 +76,14 @@ def gradearea(name):
     print '\n     ',
     for a in areas: print '%-4s'%a,
     for g in grades:
+        table[g]['*'] = []
+        row = table[g]['*']
+        
         print '\n%2d'%g,
         for a in areas: 
             t = table[g][a]
             t.sort(key=lambda it: it.loc) # within each cell, items are sorted by increasing loc
+            row += t
             print '%4d'%len(t),
             
     return table,grades,areas
