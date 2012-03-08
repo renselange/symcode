@@ -189,22 +189,24 @@ class Multifactor:
                 
         self.faclist[subfac]['curgrade'] = grade    # to avoid big jumps, start from this grade the next time    
         
-        it      = t.pop(at)     # remove item "at" from list, and return this item later
+        fac_it  = t.pop(at)     # remove item "at" from list, and return this item later
+        print fac_it.itid
         
-        itid    = it.itid       # also remove from '*'
+        if subfac == '*': return fac_it # potential error: returning does not remove item from subfactor ....
+        
+        itid    = fac_it.itid       # also remove from '*'
         t       = self.table[grade]['*']
         at      = -1
         
-        for iv,i in enumerate(t):
+        for iv,i in enumerate(t):   # find item with same DB id = not very efficient ....
             if i.itid == itid:
                 at = iv
                 break
                 
-        if at == -1: print 'Error in get_and_remove_item'
+        if at == -1: return fac_it # Not found: it was already removed from '*'
                 
         return t.pop(at)
-        
-            
+              
             
     #################################################################################################################
     # get the next item to be administered, given the location being wanted
@@ -217,7 +219,8 @@ class Multifactor:
         # find starting grade for this sub-factor to start looking
             grade,occurs    = self.start_grade(subfac)          # get grade and list of item loc range by grade: 6, [(True, -9.59, -0.98), (True, -9.66, 0.24), ..., (True, -6.83, -2.03)] 
             if not occurs[grade][0]: continue                   # check if a starting grade was identified ... (strongly favors 'curgrade')
-                                                                # print subfac,grade,occurs,self.next_grade(grade,occurs,0.0)
+            
+            #print subfac,grade,occurs,self.next_grade(grade,occurs,0.0)
             
             found,grade = self.next_grade(grade,occurs,wanted_loc)      # given a start grade, find the optimal grade
             if not found: continue                                      # nothing found, go to next factor
@@ -249,36 +252,59 @@ class Multifactor:
                 out[k] = {'est':t, 'fit':fit}   # didn't work using tuples => Python bug?
             
         return out
+    
+    ################################################################################################################
+    # add item to to general freq '*' and to the subfactor of the item (item.cat)
+    
+    def addobs(self,item,obs=-1):
         
+        t = item.cat
+        
+        # '*' and '' indicated "main" factor, but should not be doubled
+        
+        if t in ['*','']: vars = ['*']  # no subfactors are used if item.cat == ''
+        else: vars = ['*',t]            # else use both
+
+        for f in vars: self.faclist[f]['fac'].addobs(item,obs)
+        
+    ###############################################################################################################
+    #
         
     def one_sim(self,ploc):        
         self.reset_items()
-        grade = max(self.studgrade - 3,-1)  # don't go below -1        
-        
+        grade = max(self.studgrade - 3,-1)  # don't go below -1   
+             
+    #################### First, do "administer" three bootstrap items
+      
         for v in range(3):
             plist = self.factorpriority()   # this will randomly reshuffle the order of the sub-factors
             
-            for p in plist:                 # p looks like: ('F', -1.3, 2.2)
+            for p in plist:                 # p looks like: ('F', -0.2)
                 subfac = p[0]
                 t = self.table[grade][subfac]
-                if len(t) > 0:              # is there an item of this type? Note: There is always '*'
-                    low     = p[1]
-                    high    = p[2]
-                    it = self.get_and_remove_item(g,subfac,(low+high)/2.0)
+                
+                if len(t) > 0:              # is there an item of this type? Note: There is always '*' as a last resort
+                    low     = t[0].loc      # lowest loc
+                    high    = t[-1].loc     # highest loc
+                    it = self.get_and_remove_item(grade,subfac,(low+high)/2.0)  # approximate "average" item
+                    
+                    obs = it.randval(ploc)              # get an "empirical observation" (at least, a simulated one)
+                    self.addobs(it,obs)                 # add to factor for later estimation
+                    
+                    correct = (obs == len(it.steps)-1)  # correct if highest response category was reached
+                    
+                    print grade,it.steps,obs,correct,
+                    if correct and grade <= self.studgrade: grade += 1 # no more than up to 1 higher
+                    print grade
+                    break
+                    
+    # set all factor grades to the last bootstrapped grade
+        for _,f in self.faclist.iteritems(): f['curgrade'] = grade
+                    
+    #################### Second, we are now ready for the actual CAT part
         
         # return '%5d\n'%(n)
     
         
 m = Multifactor(4,{'G':0.5,'F':0.5},1,'../data/itemdefs.txt')  # {'EE':0.5,'F':0.5},'../data/itemdefs.txt') 
-print m.nextitem(2.0).show()
-print m.nextitem(2.0).show()
-print m.nextitem(2.0).show()
-print m.nextitem(2.0).show()
-print m.nextitem(2.0).show()
-print m.nextitem(2.0).show()
-print m.nextitem(2.0).show()
-print m.nextitem(2.0).show()
-print m.nextitem(2.0).show()
-print m.nextitem(2.0).show()
-print m.nextitem(2.0).show()
-print m.nextitem(2.0).show()
+m.one_sim(-2.0)
