@@ -18,26 +18,29 @@ import operator
 class Multifactor:
     
     ############################################## reset the item store ##################################################    
-    def reset_items(self):        
+    #
+    def reset_items(self):   
+             
         self.table,self.grades,self.areas = copy.deepcopy(self.itemstore)
         self.useditems = []
         
     # facprob supposed to look like: {'Fluency':0.3,'Spatial':0.5,'Reasoning': 0.2}, an additional common factor '*' will always be added
     
-        self.faclist = {'*': {'prob':-1.1,'nused':0,'fac':Factor(),'curgrade':self.studgrade,'floc':0.0,'fse':0.0}}
-
+        self.faclist    = {'*': {'prob':-1.1,'nused':0,'fac':Factor(),'curgrade':self.studgrade,'floc':0.0,'fse':0.0}}
         for Name,Prob in self.facprob.iteritems(): self.faclist[Name] = {'prob':Prob,'nused':0,'fac':Factor(),'curgrade':self.studgrade,'floc':0.0,'fse':0.0}
+        
         
     ###############################################  constructor  #######################################################    
     def __init__(self,grade,facprob,condition,itemfile): 
         
-        self.studgrade = grade
-        self.condition = condition
-        self.facprob = facprob
+        self.studgrade  = grade
+        self.condition  = condition
+        self.facprob    = facprob
         
-        self.itemstore = loaditemdat.gradearea(itemfile)    # store the original list with all items. Within cells, items are sorted by loc
+        self.itemstore  = loaditemdat.gradearea(itemfile)    # store the original list with all items. Within cells, items are sorted by loc
         
-        self.reset_items()                                  # must be called whenever starting from scratch
+        self.reset_items()                                  # must be called whenever simulating a new person
+        
         
     ######################################## Really should be a separate method  ########################################
         better = False
@@ -125,9 +128,10 @@ class Multifactor:
             if t[g][0]: return g,t
         
         return curgrade,t                               # t[curgrade] will look like (False,..,..)
+        
     
     ####################################################################################################
-    # Starting at grade, we look for a grade with items whose locations include wanted_loc
+    # Starting at grade, we look for a grade (maybe this one) with items whose locations include wanted_loc
     # If there are any items to be had, the closest grade will be selected
     # Search does not go over current grade + 1
         
@@ -221,16 +225,20 @@ class Multifactor:
             found,grade = self.next_grade(grade,occurs,wanted_loc)      # given a start grade, find the optimal grade
             if not found: continue                                      # nothing found, go to next factor
             # print grade
-            return self.get_and_remove_item(grade,subfac,wanted_loc)    # done       
+            return self.get_and_remove_item(grade,subfac,wanted_loc)    # done   
+                
 
     #################################################################################################################
-    # when computing ploc for next CAT move, use only the '*' factor        
+    # when computing ploc for next CAT move, use only the '*' factor 
+           
     def facest(self):
         f = self.faclist['*']['fac']
         return f.rawtorasch(f.rawsum)
+        
     
     ##################################################################################################################
     # estimate person locs on all factors, incl '*' etc    
+    
     def allest(self):
         t       = self.facprob['*'][2]
         rasch   = t.rawtorasch(t.rawsum)
@@ -248,6 +256,7 @@ class Multifactor:
                 out[k] = {'est':t, 'fit':fit}   # didn't work using tuples => Python bug?
             
         return out
+        
     
     ################################################################################################################
     # add item to to general freq '*' and to the subfactor of the item (item.cat)
@@ -262,6 +271,7 @@ class Multifactor:
         else: vars = ['*',t]            # else use both
 
         for f in vars: self.faclist[f]['fac'].addobs(item,obs)
+        
         
     ###############################################################################################################
     # Simulate a single person taking a test
