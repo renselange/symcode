@@ -22,26 +22,22 @@ class Multifactor:
         self.table,self.grades,self.areas = copy.deepcopy(self.itemstore)
         self.useditems = []
         
+    # facprob supposed to look like: {'Fluency':0.3,'Spatial':0.5,'Reasoning': 0.2}, an additional common factor '*' will always be added
+    
+        self.faclist = {'*': {'prob':-1.1,'nused':0,'fac':Factor(),'curgrade':self.studgrade,'floc':0.0,'fse':0.0}}
+
+        for Name,Prob in self.facprob.iteritems(): self.faclist[Name] = {'prob':Prob,'nused':0,'fac':Factor(),'curgrade':self.studgrade,'floc':0.0,'fse':0.0}
+        
     ###############################################  constructor  #######################################################    
     def __init__(self,grade,facprob,condition,itemfile): 
         
         self.studgrade = grade
         self.condition = condition
-         
-    # facprob supposed to look like: {'Fluency':0.3,'Spatial':0.5,'Reasoning': 0.2}, an additional common factor '*' will always be added
-    
-        self.faclist = {'*': {'prob':-1.1,'nused':0,'fac':Factor(),'curgrade':grade,'floc':0.0,'fse':0.0}}
-        
-        for Name,Prob in facprob.iteritems(): self.faclist[Name] = {'prob':Prob,'nused':0,'fac':Factor(),'curgrade':grade,'floc':0.0,'fse':0.0} 
+        self.facprob = facprob
         
         self.itemstore = loaditemdat.gradearea(itemfile)    # store the original list with all items. Within cells, items are sorted by loc
         
         self.reset_items()                                  # must be called whenever starting from scratch
-        
-        # print '\n\nCheck on sorted cells:',self.table[8]['EE'][0].loc,'lower than',self.table[8]['EE'][-1].loc
-        # print
-        # for ii,i in enumerate(self.table[8]['EE']):
-        #    print ii,i.show()
         
     ######################################## Really should be a separate method  ########################################
         better = False
@@ -190,7 +186,7 @@ class Multifactor:
         self.faclist[subfac]['curgrade'] = grade    # to avoid big jumps, start from this grade the next time    
         
         fac_it  = t.pop(at)     # remove item "at" from list, and return this item later
-        print fac_it.itid
+        # print fac_it.itid
         
         if subfac == '*': return fac_it # potential error: returning does not remove item from subfactor ....
         
@@ -230,7 +226,7 @@ class Multifactor:
     #################################################################################################################
     # when computing ploc for next CAT move, use only the '*' factor        
     def facest(self):
-        f = self.facprob['*'][2]
+        f = self.faclist['*']['fac']
         return f.rawtorasch(f.rawsum)
     
     ##################################################################################################################
@@ -272,9 +268,11 @@ class Multifactor:
     # Return a list of strings representing the simulation results
     #
         
-    def one_sim(self,ploc):        
+    def one_sim(self,pid,ploc):        
         self.reset_items()
         grade = max(self.studgrade - 3,-1)  # don't go below -1   
+        record = ''
+   
              
     ######################### First, do "administer" three bootstrap items #################
       
@@ -289,24 +287,42 @@ class Multifactor:
                     low     = t[0].loc      # lowest loc
                     high    = t[-1].loc     # highest loc
                     it = self.get_and_remove_item(grade,subfac,(low+high)/2.0)  # approximate "average" item
+                    self.useditems.append(it)
                     
                     obs = it.randval(ploc)              # get an "empirical observation" (at least, a simulated one)
                     self.addobs(it,obs)                 # add to factor for later estimation
-                    
                     correct = (obs == len(it.steps)-1)  # correct iff highest response category was reached
                     
-                    print grade,it.steps,obs,correct,
+                    record += '\n%5d,%6.2f,%2d,%4d,%2d,%6.2f,%d,%6.2f,%6.2f'%(pid,ploc,len(self.useditems),it.itid,grade,it.loc,obs,-9.0,-9.0)  
+                    #outside, glue person-id and person-loc to front
+                    
+                    
+                    #print grade,it.steps,obs,correct,
                     if correct and grade <= self.studgrade: grade += 1 # no more than up to 1 higher
-                    print grade
+                    #print grade
                     break
                     
         # set ALL factor grades to the last bootstrapped grade
         for _,f in self.faclist.iteritems(): f['curgrade'] = grade
                     
-    #################### Second, we are now ready for the actual CAT part
+    ############################### We are now ready for the actual CAT part ###################################
+    
+        estloc,estse,_ = self.facest() # get an estimate based on all 3 items thus far ...
         
-        # return '%5d\n'%(n)
+        while len(self.useditems) < 50: 
+            it = self.nextitem(estloc)
+            obs = it.randval(ploc)
+            self.addobs(it,obs)
+            self.useditems.append(it)
+            
+            estloc,estse,_ = self.facest()
+            record += '\n%5d,%6.2f,%2d,%4d,%2d,%6.2f,%d,%6.2f,%6.2f'%(pid,ploc,len(self.useditems),it.itid,grade,it.loc,obs,estloc,estse) 
+            # print ploc,estloc
+            
+        
+        return '%s'%(record)
     
         
-m = Multifactor(4,{'G':0.5,'F':0.5},1,'../data/itemdefs.txt')  # {'EE':0.5,'F':0.5},'../data/itemdefs.txt') 
-m.one_sim(-2.0)
+m = Multifactor(4,{'MD':0.25,'NBT':0.25,'NF':0.25,'OA':0.25},1,'../data/itemdefs.txt')  # {'EE':0.5,'F':0.5},'../data/itemdefs.txt') 
+print m.one_sim(1,-2.0),
+print m.one_sim(2,4.0),
