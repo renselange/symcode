@@ -36,16 +36,18 @@ class Multifactor:
         ses  = ''
         fits = ''
         lfits= ''
+        lens = ''
         for v in self.facorder:
             locs += ',%s_loc' % v
             ses  += ',%s_se'  % v
             fits += ',%s_fit' % v
             lfits+= ',%s_log' % v
-        return ','.join(['pid','phase','ploc','ndone','itid','itcat','itloc','obs','est_all','se_all']) + locs + ses + fits + lfits
+            lens += ',%s_n'   % v
+        return ','.join(['pid','phase','ploc','ndone','itid','itcat','itloc','obs','est_all','se_all']) + locs + ses + fits + lfits + lens
         #record += '\n%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,%6.2f,%6.2f%s'%(pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,estloc,estse,self.str_allest(allest))  
         
     def nofacs(self):
-        return ','*len(self.facorder)*4  
+        return ','*len(self.facorder)*5  
         
     ###############################################  constructor  #######################################################    
     def __init__(self,grade,facprob,condition,itemfile): 
@@ -282,14 +284,16 @@ class Multifactor:
         sestr  = ''
         fitstr = ''
         lfitstr= ''
+        lenstr = ''
         for v in self.facorder:
+            lenstr += ',%2d' % self.faclist[v]['nused']
             t = allest[v]['est']
             locstr += ',%6.2f' % (t[0])
             sestr  += ',%6.2f' % (t[1])
             t = allest[v]['fit']
             fitstr += ',%6.2f' % (t[0])
             lfitstr+= ',%6.2f' % (t[1])
-        return locstr+sestr+fitstr+lfitstr
+        return locstr+sestr+fitstr+lfitstr+lenstr
             
         
     
