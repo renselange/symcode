@@ -28,7 +28,24 @@ class Multifactor:
     
         self.faclist    = {'*': {'prob':-1.1,'nused':0,'fac':Factor(),'curgrade':self.studgrade,'floc':0.0,'fse':0.0}}
         for Name,Prob in self.facprob.iteritems(): self.faclist[Name] = {'prob':Prob,'nused':0,'fac':Factor(),'curgrade':self.studgrade,'floc':0.0,'fse':0.0}
+    
+    #################
+    #
+    def colnames(self):
+        locs = ''
+        ses  = ''
+        fits = ''
+        lfits= ''
+        for v in self.facorder:
+            locs += ',%s_loc' % v
+            ses  += ',%s_se'  % v
+            fits += ',%s_fit' % v
+            lfits+= ',%s_log' % v
+        return ','.join(['pid','phase','ploc','ndone','itid','itcat','itloc','obs','est_all','se_all']) + locs + ses + fits + lfits
+        #record += '\n%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,%6.2f,%6.2f%s'%(pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,estloc,estse,self.str_allest(allest))  
         
+    def nofacs(self):
+        return ','*len(self.facorder)*4  
         
     ###############################################  constructor  #######################################################    
     def __init__(self,grade,facprob,condition,itemfile): 
@@ -37,9 +54,7 @@ class Multifactor:
         self.condition  = condition
         self.facprob    = facprob
         self.facorder   = facprob.keys()
-        self.facorder.sort()
-        print self.facorder
-        
+        self.facorder.sort()                                # order of results       
         
         self.itemstore  = loaditemdat.gradearea(itemfile)    # store the original list with all items. Within cells, items are sorted by loc
         
@@ -262,6 +277,21 @@ class Multifactor:
             
         return out
         
+    def str_allest(self,allest):
+        locstr = ''
+        sestr  = ''
+        fitstr = ''
+        lfitstr= ''
+        for v in self.facorder:
+            t = allest[v]['est']
+            locstr += ',%6.2f' % (t[0])
+            sestr  += ',%6.2f' % (t[1])
+            t = allest[v]['fit']
+            fitstr += ',%6.2f' % (t[0])
+            lfitstr+= ',%6.2f' % (t[1])
+        return locstr+sestr+fitstr+lfitstr
+            
+        
     
     ################################################################################################################
     # add item to to general freq '*' and to the subfactor of the item (item.cat)
@@ -310,7 +340,7 @@ class Multifactor:
                     self.addobs(it,obs)                 # add to factor for later estimation
                     correct = (obs == len(it.steps)-1)  # correct iff highest response category was reached
                     
-                    record += '\n%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,%6.2f,%6.2f'%(pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,-9.0,-9.0)  
+                    record += '\n%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,,%s'%(pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,self.nofacs())  
                     #outside, glue person-id and person-loc to front
                     
                     
@@ -337,7 +367,7 @@ class Multifactor:
             self.useditems.append(it)
             
             estloc,estse,_ = self.facest()
-            record += '\n%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,%6.2f,%6.2f'%(pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,estloc,estse) 
+            record += '\n%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,%6.2f,%6.2f%s'%(pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,estloc,estse,self.nofacs()) 
 
     ########################## Phase 3: Need based by SE ######################################################################
     
@@ -349,7 +379,7 @@ class Multifactor:
         while len(self.useditems) < 30:
             allest = self.allest()
             priority = sorted([(k,defn['est'][1]) for k,defn in allest.iteritems()],key=lambda x: -x[1]) # list of subfactors, largest SE first
-            print priority
+            #print priority
             
             for facname,se in priority: # looks like: [('F',1.09),('DD',1.01), ...,('*',0.8)]
                 grade = self.faclist[facname]['curgrade']
@@ -362,19 +392,27 @@ class Multifactor:
                     found,gg = self.next_grade(g,occurs,wanted_loc)             # given start grade g, find the optimal grade gg
                     if not found: continue                                      # nothing found, go to next factor
                     it = self.get_and_remove_item(gg,facname,wanted_loc)        # done
-                    print it.show()
+                    #print it.show()
                     obs = it.randval(ploc)
                     self.addobs(it,obs)
                     self.useditems.append(it)
                     allest = self.allest()
+                    #print allest
                     estloc = allest['*']['est'][0]
                     estse  = allest['*']['est'][1]
-                    record += '\n%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,%6.2f,%6.2f'%(pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,estloc,estse) 
+                    record += '\n%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,%6.2f,%6.2f%s'%(pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,estloc,estse,self.str_allest(allest)) 
                     break
-        #print self.allest()
-        return '%s'%(record)
+   
+        return '%s'%(record[1:]+'\n')
     
         
 m = Multifactor(4,{'MD':0.25,'NBT':0.25,'NF':0.25,'OA':0.25},1,'../data/itemdefs.txt')  # {'EE':0.5,'F':0.5},'../data/itemdefs.txt') 
-print m.one_sim(1,-2.0),
-print m.one_sim(2,4.0),
+#print m.colnames()
+#print m.one_sim(1,-2.0),
+#print m.one_sim(2,4.0),
+fout = open('../simresults.txt','w')
+fout.write(m.colnames()+'\n')
+for v in xrange(1000):
+    if v % 100 == 0: print v
+    fout.write(m.one_sim(v,gauss(0,1)))
+fout.close()
