@@ -36,6 +36,10 @@ class Multifactor:
         self.studgrade  = grade
         self.condition  = condition
         self.facprob    = facprob
+        self.facorder   = facprob.keys()
+        self.facorder.sort()
+        print self.facorder
+        
         
         self.itemstore  = loaditemdat.gradearea(itemfile)    # store the original list with all items. Within cells, items are sorted by loc
         
@@ -240,20 +244,21 @@ class Multifactor:
     # estimate person locs on all factors, incl '*' etc    
     
     def allest(self):
-        t       = self.facprob['*'][2]
+        t       = self.faclist['*']['fac']
         rasch   = t.rawtorasch(t.rawsum)
         ploc    = rasch[0]
         fit     = t.resid(ploc)
 
         out = {'*':{'est':rasch,'fit':fit}}
         
-        for k,f in self.facprob.iteritems():# iterate through dict
+        for k,f in self.faclist.iteritems():    # iterate through dict
             if k == '*': continue
-            fac     = self.facprob[k][2]    # dig out factor from dict item
-            if len(fac.answered) > 0:       # check if this subfactor was used at all
+            fac = f['fac']                      # dig out factor from dict item
+            if len(fac.answered) > 0:           # check if this subfactor was used at all
                 t = fac.rawtorasch(fac.rawsum)  # get person estimate (<loc>,<se>,<niter>)
                 fit = fac.resid(ploc)           # compute fit stuff
                 out[k] = {'est':t, 'fit':fit}   # didn't work using tuples => Python bug?
+            else: out[k] = {'est': (-9.0,-9.0,0), 'fit': (-9.0,-9.0,0)}
             
         return out
         
@@ -270,7 +275,9 @@ class Multifactor:
         if t in ['*','']: vars = ['*']  # no subfactors are used if item.cat == ''
         else: vars = ['*',t]            # else use both
 
-        for f in vars: self.faclist[f]['fac'].addobs(item,obs)
+        for f in vars: 
+            self.faclist[f]['fac'].addobs(item,obs)
+            self.faclist[f]['nused'] += 1
         
         
     ###############################################################################################################
@@ -284,8 +291,8 @@ class Multifactor:
         record = ''
    
              
-    ######################### First, do "administer" three bootstrap items #################
-      
+    ######################### Phase 1: "administer" three bootstrap items #################
+        phase = 1
         for v in range(3):
             plist = self.factorpriority()   # this will randomly reshuffle the order of the sub-factors
             
@@ -303,7 +310,7 @@ class Multifactor:
                     self.addobs(it,obs)                 # add to factor for later estimation
                     correct = (obs == len(it.steps)-1)  # correct iff highest response category was reached
                     
-                    record += '\n%5d,%6.2f,%2d,%4d,%2d,%6.2f,%d,%6.2f,%6.2f'%(pid,ploc,len(self.useditems),it.itid,grade,it.loc,obs,-9.0,-9.0)  
+                    record += '\n%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,%6.2f,%6.2f'%(pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,-9.0,-9.0)  
                     #outside, glue person-id and person-loc to front
                     
                     
@@ -311,25 +318,60 @@ class Multifactor:
                     if correct and grade <= self.studgrade: grade += 1 # no more than up to 1 higher
                     #print grade
                     break
-                    
-        # set ALL factor grades to the last bootstrapped grade
-        for _,f in self.faclist.iteritems(): f['curgrade'] = grade
-                    
-    ############################### We are now ready for the actual CAT part ###################################
+                                
+    ############################# Phase 2: One factor CAT for nfac x 4 items (but < 20), need based by cat freq ###############  
+         
+        phase = 2
+                
+        # reset ALL factor grades to the actual studend grade
+        for _,f in self.faclist.iteritems(): f['curgrade'] = self.studgrade
     
         estloc,estse,_ = self.facest() # get an estimate based on all 3 items thus far ...
         
-        while len(self.useditems) < 50: 
+        niter2 = min(20,len(self.facprob)*4)    # no more than 20, if that ..
+        
+        while len(self.useditems) < niter2: 
             it = self.nextitem(estloc)
             obs = it.randval(ploc)
             self.addobs(it,obs)
             self.useditems.append(it)
             
             estloc,estse,_ = self.facest()
-            record += '\n%5d,%6.2f,%2d,%4d,%2d,%6.2f,%d,%6.2f,%6.2f'%(pid,ploc,len(self.useditems),it.itid,grade,it.loc,obs,estloc,estse) 
-            # print ploc,estloc
-            
+            record += '\n%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,%6.2f,%6.2f'%(pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,estloc,estse) 
+
+    ########################## Phase 3: Need based by SE ######################################################################
+    
+        phase = 3
+                
+        # reset ALL factor grades to the actual studend grade
+        # for _,f in self.faclist.iteritems(): f['curgrade'] = self.studgrade
         
+        while len(self.useditems) < 30:
+            allest = self.allest()
+            priority = sorted([(k,defn['est'][1]) for k,defn in allest.iteritems()],key=lambda x: -x[1]) # list of subfactors, largest SE first
+            print priority
+            
+            for facname,se in priority: # looks like: [('F',1.09),('DD',1.01), ...,('*',0.8)]
+                grade = self.faclist[facname]['curgrade']
+                wanted_loc = allest[facname]['est'][0]
+                
+                if len(self.table[grade][facname]) > 1:
+                    g,occurs = self.start_grade(facname)
+                    if not occurs[g][0]: continue
+                    
+                    found,gg = self.next_grade(g,occurs,wanted_loc)             # given start grade g, find the optimal grade gg
+                    if not found: continue                                      # nothing found, go to next factor
+                    it = self.get_and_remove_item(gg,facname,wanted_loc)        # done
+                    print it.show()
+                    obs = it.randval(ploc)
+                    self.addobs(it,obs)
+                    self.useditems.append(it)
+                    allest = self.allest()
+                    estloc = allest['*']['est'][0]
+                    estse  = allest['*']['est'][1]
+                    record += '\n%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,%6.2f,%6.2f'%(pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,estloc,estse) 
+                    break
+        #print self.allest()
         return '%s'%(record)
     
         
