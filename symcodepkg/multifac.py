@@ -43,11 +43,15 @@ class Multifactor:
             fits += ',%s_fit' % v
             lfits+= ',%s_log' % v
             lens += ',%s_n'   % v
+            
+        locs += ',loc_mean,loc_sd'      # variance of fac estimates
+        lens += ',n_range'      # range of items per fac
+        
         return ','.join(['pid','phase','ploc','ndone','itid','itcat','itloc','obs','est_all','se_all']) + locs + ses + fits + lfits + lens
-        #record += '\n%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,%6.2f,%6.2f%s'%(pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,estloc,estse,self.str_allest(allest))  
+        #record += '\n%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,%6.2f,%6.2f%s'%(pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,####,obs,estloc,estse,self.str_allest(allest),####)  
         
     def nofacs(self):
-        return ','*len(self.facorder)*5  
+        return ','*( len(self.facorder)*5  + 3)
         
     ###############################################  constructor  #######################################################    
     def __init__(self,grade,facprob,condition,itemfile): 
@@ -256,6 +260,24 @@ class Multifactor:
         f = self.faclist['*']['fac']
         return f.rawtorasch(f.rawsum)
         
+    def m_sd(self,x):
+        sx,sxx = 0.0, 0.0
+        minv, maxv = x[0],x[0]
+
+        for v in x:
+            sx += v
+            sxx+= v * v
+            if v > maxv: maxv = v
+            elif v < minv : minv = v
+            
+        n = len(x)
+        
+        if n < 2: return 0.0,-1.0,0.0,0.0
+        
+        sxx = math.sqrt((sxx - sx*sx/n)/(n-1))
+        
+        return sx / n, sxx,minv,maxv
+        
     
     ##################################################################################################################
     # estimate person locs on all factors, incl '*' etc    
@@ -273,7 +295,7 @@ class Multifactor:
             fac = f['fac']                      # dig out factor from dict item
             if len(fac.answered) > 0:           # check if this subfactor was used at all
                 t = fac.rawtorasch(fac.rawsum)  # get person estimate (<loc>,<se>,<niter>)
-                fit = fac.resid(ploc)           # compute fit stuff
+                fit = fac.resid(ploc)           # compute fit stuff - relative to OVERALL Rasch person estimate - NOT factor specific
                 out[k] = {'est':t, 'fit':fit}   # didn't work using tuples => Python bug?
             else: out[k] = {'est': (-9.0,-9.0,0), 'fit': (-9.0,-9.0,0)}
             
@@ -285,14 +307,24 @@ class Multifactor:
         fitstr = ''
         lfitstr= ''
         lenstr = ''
+        lenv   = []
+        locv   = []
         for v in self.facorder:
             lenstr += ',%2d' % self.faclist[v]['nused']
+            lenv.append(self.faclist[v]['nused'])
             t = allest[v]['est']
             locstr += ',%6.2f' % (t[0])
+            locv.append(t[0])
             sestr  += ',%6.2f' % (t[1])
             t = allest[v]['fit']
             fitstr += ',%6.2f' % (t[0])
             lfitstr+= ',%6.2f' % (t[1])
+            
+        lenstats = self.m_sd(lenv)  # m, sd, min, max
+        lenstr   += ',%2d' % (lenstats[3]-lenstats[2])
+        locstats = self.m_sd(locv)
+        locstr   += ',%6.2f,%6.2f' % (locstats[0],locstats[1])
+        
         return locstr+sestr+fitstr+lfitstr+lenstr
             
         
@@ -365,6 +397,7 @@ class Multifactor:
         niter2 = min(20,len(self.facprob)*4)    # no more than 20, if that ..
         
         while len(self.useditems) < niter2: 
+            estloc = estloc - 0.7 + uniform(-0.2,0.2)   # to achieve p-correct = 0.67
             it = self.nextitem(estloc)
             obs = it.randval(ploc)
             self.addobs(it,obs)
@@ -388,6 +421,7 @@ class Multifactor:
             for facname,se in priority: # looks like: [('F',1.09),('DD',1.01), ...,('*',0.8)]
                 grade = self.faclist[facname]['curgrade']
                 wanted_loc = allest[facname]['est'][0]
+                wanted_loc = wanted_loc - 0.7 + uniform(-0.2,0.2)   # to achieve p-correct = 0.67
                 
                 if len(self.table[grade][facname]) > 1:
                     g,occurs = self.start_grade(facname)
@@ -408,7 +442,18 @@ class Multifactor:
                     break
    
         return '%s'%(record[1:]+'\n')
-    
+        
+'''   Grad ScSc Logit
+        0   406 -5.53
+        1   517 -3.83
+        2   615 -2.32
+        3   678 -1.35
+        4   740 -0.40
+        5   786  0.31
+        6   813  0.72
+        7   853  1.34
+        8   895  1.98   
+''' 
         
 m = Multifactor(4,{'MD':0.25,'NBT':0.25,'NF':0.25,'OA':0.25},1,'../data/itemdefs.txt')  # {'EE':0.5,'F':0.5},'../data/itemdefs.txt') 
 #print m.colnames()
@@ -416,7 +461,12 @@ m = Multifactor(4,{'MD':0.25,'NBT':0.25,'NF':0.25,'OA':0.25},1,'../data/itemdefs
 #print m.one_sim(2,4.0),
 fout = open('../simresults.txt','w')
 fout.write(m.colnames()+'\n')
-for v in xrange(1000):
-    if v % 100 == 0: print v
-    fout.write(m.one_sim(v,gauss(0,1)))
+
+ntrial = 10000
+for x in xrange(ntrial+1):
+    v = float(x) / ntrial
+    v = -0.4 + (v - 0.5) * 4.0  # 2 logits down and up
+    
+    if x % 100 == 0: print x,'=>',v
+    fout.write(m.one_sim(x,v))
 fout.close()
