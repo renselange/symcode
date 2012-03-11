@@ -47,7 +47,7 @@ class Multifactor:
         locs += ',loc_mean,loc_sd'      # variance of fac estimates
         lens += ',n_range'      # range of items per fac
         
-        return ','.join(['pid','phase','ploc','ndone','itid','itcat','itloc','obs','est_all','se_all']) + locs + ses + fits + lfits + lens
+        return ','.join(['cond','pid','phase','ploc','ndone','itid','itcat','itloc','obs','est_all','se_all']) + locs + ses + fits + lfits + lens
         #record += '\n%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,%6.2f,%6.2f%s'%(pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,####,obs,estloc,estse,self.str_allest(allest),####)  
         
     def nofacs(self):
@@ -376,7 +376,7 @@ class Multifactor:
                     self.addobs(it,obs)                 # add to factor for later estimation
                     correct = (obs == len(it.steps)-1)  # correct iff highest response category was reached
                     
-                    record += '\n%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,,%s'%(pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,self.nofacs())  
+                    record += '\n%2d,%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,,%s'%(self.condition,pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,self.nofacs())  
                     #outside, glue person-id and person-loc to front
                     
                     
@@ -404,7 +404,7 @@ class Multifactor:
             self.useditems.append(it)
             
             estloc,estse,_ = self.facest()
-            record += '\n%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,%6.2f,%6.2f%s'%(pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,estloc,estse,self.nofacs()) 
+            record += '\n%2d,%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,%6.2f,%6.2f%s'%(self.condition,pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,estloc,estse,self.nofacs()) 
 
     ########################## Phase 3: Need based by SE ######################################################################
     
@@ -413,7 +413,7 @@ class Multifactor:
         # reset ALL factor grades to the actual studend grade
         # for _,f in self.faclist.iteritems(): f['curgrade'] = self.studgrade
         
-        while len(self.useditems) < 30:
+        while len(self.useditems) < 35:
             allest = self.allest()
             priority = sorted([(k,defn['est'][1]) for k,defn in allest.iteritems()],key=lambda x: -x[1]) # list of subfactors, largest SE first
             #print priority
@@ -438,7 +438,7 @@ class Multifactor:
                     #print allest
                     estloc = allest['*']['est'][0]
                     estse  = allest['*']['est'][1]
-                    record += '\n%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,%6.2f,%6.2f%s'%(pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,estloc,estse,self.str_allest(allest)) 
+                    record += '\n%2d,%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,%6.2f,%6.2f%s'%(self.condition,pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,estloc,estse,self.str_allest(allest)) 
                     break
    
         return '%s'%(record[1:]+'\n')
@@ -456,18 +456,28 @@ class Multifactor:
 ''' 
 
 
-'''        
-m = Multifactor(4,{'MD':0.25,'NBT':0.25,'NF':0.25,'OA':0.25},1,'../data/itemdefs.txt')  
-fout = open('../symresults/simresults4.txt','w')
-fout.write(m.colnames()+'\n')
-
-ntrial = 10000
-
-for x in xrange(ntrial+1):
-    v = float(x) / ntrial
-    v = -0.4 + (v - 0.5) * 4.0  # 2 logits down and up
+def runsim(grade,condition):
+    foutname = '/Users/renselange/symphony/symresults/grade%d.txt' % (grade)
+    defsname = '/Users/renselange/symphony/symcode/data/itemdefs.txt'
     
-    if x % 100 == 0: print x,'=>',v
-    fout.write(m.one_sim(x,v))
-fout.close()
-'''
+    facset   =  {
+                4 : {'MD':0.25,'NBT':0.25,'NF':0.25,'OA':0.25}
+                }
+          
+    m = Multifactor(4,facset[grade],condition,defsname)  
+    fout = open(foutname,'w')
+    fout.write(m.colnames()+'\n')
+
+    ntrial = 10000
+
+    for x in xrange(ntrial+1):
+        v = float(x) / ntrial
+        v = -0.4 + (v - 0.5) * 5.0  # 2.5 logits down and up
+    
+        if x % 100 == 0: print x,'=>',v
+        fout.write(m.one_sim(x,v))
+            
+    fout.close()
+
+for g in [4]:
+    runsim(g,1)
