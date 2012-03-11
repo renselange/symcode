@@ -455,12 +455,14 @@ class Multifactor:
         8   895  1.98   
 ''' 
 
+
 '''        
 m = Multifactor(4,{'MD':0.25,'NBT':0.25,'NF':0.25,'OA':0.25},1,'../data/itemdefs.txt')  
 fout = open('../symresults/simresults4.txt','w')
 fout.write(m.colnames()+'\n')
 
 ntrial = 10000
+
 for x in xrange(ntrial+1):
     v = float(x) / ntrial
     v = -0.4 + (v - 0.5) * 4.0  # 2 logits down and up
