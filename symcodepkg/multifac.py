@@ -454,12 +454,10 @@ class Multifactor:
         7   853  1.34
         8   895  1.98   
 ''' 
-        
-m = Multifactor(4,{'MD':0.25,'NBT':0.25,'NF':0.25,'OA':0.25},1,'../data/itemdefs.txt')  # {'EE':0.5,'F':0.5},'../data/itemdefs.txt') 
-#print m.colnames()
-#print m.one_sim(1,-2.0),
-#print m.one_sim(2,4.0),
-fout = open('../simresults.txt','w')
+
+'''        
+m = Multifactor(4,{'MD':0.25,'NBT':0.25,'NF':0.25,'OA':0.25},1,'../data/itemdefs.txt')  
+fout = open('../symresults/simresults4.txt','w')
 fout.write(m.colnames()+'\n')
 
 ntrial = 10000
@@ -470,3 +468,4 @@ for x in xrange(ntrial+1):
     if x % 100 == 0: print x,'=>',v
     fout.write(m.one_sim(x,v))
 fout.close()
+'''
