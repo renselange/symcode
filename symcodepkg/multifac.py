@@ -60,7 +60,8 @@ class Multifactor:
         self.condition  = condition
         self.facprob    = facprob
         self.facorder   = facprob.keys()
-        self.facorder.sort()                                # order of results       
+        self.facorder.sort()                                # order of results   
+        self.maxrun     = 0    
         
         self.itemstore  = loaditemdat.gradearea(itemfile)    # store the original list with all items. Within cells, items are sorted by loc
         
@@ -414,7 +415,7 @@ class Multifactor:
         # reset ALL factor grades to the actual studend grade
         # for _,f in self.faclist.iteritems(): f['curgrade'] = self.studgrade
         
-        while len(self.useditems) < 35:
+        while len(self.useditems) < 100: # 35:
             allest = self.allest()
             priority = sorted([(k,defn['est'][1]) for k,defn in allest.iteritems()],key=lambda x: -x[1]) # list of subfactors, largest SE first
             #print priority
@@ -439,11 +440,15 @@ class Multifactor:
                     #print allest
                     estloc = allest['*']['est'][0]
                     estse  = allest['*']['est'][1]
-                    lastadd = '\n%2d,%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,%6.2f,%6.2f%s'%(self.condition,pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,estloc,estse,self.str_allest(allest)) 
-                    record += lastadd 
-                    if estse < 0.5: return '1,'+lastadd # COMMENT OUT????
+                    lastadd = '%2d,%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,%6.2f,%6.2f%s'%(self.condition,pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,estloc,estse,self.str_allest(allest)) 
+                    record += '\n'+lastadd 
+                    if estse < 0.5: 
+                        if len(self.useditems) > self.maxrun: 
+                            self.maxrun = len(self.useditems)
+                            print 'new maxrun:',self.maxrun
+                        return '\n1,'+lastadd # COMMENT OUT????
                     break
-        return '0,'+lastadd
+        return '\n0,'+lastadd
         # return '%s'%(record[1:]+'\n')n # KEEP KEEP
         
 '''   Grad ScSc Logit
@@ -505,6 +510,7 @@ def run_to_end(grade,condition):
     fout.write(m.colnames()+'\n')
 
     ntrial = 10000
+    maxrun = 0
 
     for x in xrange(ntrial+1):
         v = float(x) / ntrial
