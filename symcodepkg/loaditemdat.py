@@ -12,14 +12,19 @@ from item import Item
 def parselabel(sym):
     s = sym.strip()
     iarea  = s[0] # math vs reading
-    
-    igrade = s[1] # P=-1, K=0, 1, ...,8
-    if igrade == 'K': igrade = 0
-    elif igrade == 'P': igrade =-1
-    else: igrade = int(igrade)
-    
     itype  = ''   # 1 - 8, as in Monterey paper
     icont  = ''   # between grade and type
+    
+    igrade = s[1] # P=-1, K=0, 1, ...,8
+    if igrade == 'K': 
+        igrade = 0
+    elif igrade == 'P': 
+        igrade =-1
+        itype = '1'
+        icont = 'MD'
+        return [iarea,igrade,icont,itype]
+    else: 
+        igrade = int(igrade)
 
     for ci,c in enumerate(s[2:]):
         if c.isdigit():
@@ -37,12 +42,15 @@ def loadfile(name):
             f = v.strip().split(';')
             label   = parselabel(f[5].split(' ')[-2][:-1])
             sub     = label[2]   # f[5] looks like: '"[DB# 103 MKCC4m_1] ncats=2"'
+            # if sub == 'KG': print 'Saw:',sub
             itemno  = int(f[0])
             iloc    = float(f[2])
             recode  = f[3]
             steps   = eval(f[4])
             #print itemno,sub
+            #if label[1] == -1:
             items.append((label,Item(itemno,iloc,steps,cat=sub)))
+            # print label,items[-1][1].cat
         return items
         
 def gradearea(name):

@@ -342,6 +342,7 @@ class Multifactor:
         else: vars = ['*',t]            # else use both
 
         for f in vars: 
+            if f == 'PK': print 'Seeing f ==',f
             self.faclist[f]['fac'].addobs(item,obs)
             self.faclist[f]['nused'] += 1
         
@@ -438,10 +439,12 @@ class Multifactor:
                     #print allest
                     estloc = allest['*']['est'][0]
                     estse  = allest['*']['est'][1]
-                    record += '\n%2d,%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,%6.2f,%6.2f%s'%(self.condition,pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,estloc,estse,self.str_allest(allest)) 
+                    lastadd = '\n%2d,%5d,%d,%6.2f,%2d,%4d,%4s,%6.2f,%d,%6.2f,%6.2f%s'%(self.condition,pid,phase,ploc,len(self.useditems),it.itid,it.cat,it.loc,obs,estloc,estse,self.str_allest(allest)) 
+                    record += lastadd 
+                    if estse < 0.5: return '1,'+lastadd # COMMENT OUT????
                     break
-   
-        return '%s'%(record[1:]+'\n')
+        return '0,'+lastadd
+        # return '%s'%(record[1:]+'\n')n # KEEP KEEP
         
 '''   Grad ScSc Logit
         0   406 -5.53
@@ -460,11 +463,16 @@ def runsim(grade,condition):
     foutname = '/Users/renselange/symphony/symresults/grade%d.txt' % (grade)
     defsname = '/Users/renselange/symphony/symcode/data/itemdefs.txt'
     
+    mean     =  [-5.53,-3.83,-2.32,-1.35,-0.40, 0.31,0.72,1.34,1.98]
+    
     facset   =  {
-                4 : {'MD':0.25,'NBT':0.25,'NF':0.25,'OA':0.25}
+                0 : {'CC':0.25,'G':0.25,'MD':0.25,'OA':0.25},
+                4 : {'MD':0.25,'NBT':0.25,'NF':0.25,'OA':0.25},
+                8 : {'EE':0.33333,'G':0.33333,'SP':0.33333}
                 }
           
-    m = Multifactor(4,facset[grade],condition,defsname)  
+    m = Multifactor(grade,facset[grade],condition,defsname)  
+    
     fout = open(foutname,'w')
     fout.write(m.colnames()+'\n')
 
@@ -472,12 +480,43 @@ def runsim(grade,condition):
 
     for x in xrange(ntrial+1):
         v = float(x) / ntrial
-        v = -0.4 + (v - 0.5) * 5.0  # 2.5 logits down and up
+        v = mean[grade] + (v - 0.5) * 5.0  # 2.5 logits down and up
     
         if x % 100 == 0: print x,'=>',v
         fout.write(m.one_sim(x,v))
             
     fout.close()
 
-for g in [4]:
-    runsim(g,1)
+def run_to_end(grade,condition):
+    foutname = '/Users/renselange/symphony/symresults/to_end_%d.txt' % (grade)
+    defsname = '/Users/renselange/symphony/symcode/data/itemdefs.txt'
+    
+    mean     =  [-5.53,-3.83,-2.32,-1.35,-0.40, 0.31,0.72,1.34,1.98]
+    
+    facset   =  {
+                0 : {'CC':0.25,'G':0.25,'MD':0.25,'OA':0.25},
+                4 : {'MD':0.25,'NBT':0.25,'NF':0.25,'OA':0.25},
+                8 : {'EE':0.33333,'G':0.33333,'SP':0.33333}
+                }
+          
+    m = Multifactor(grade,facset[grade],condition,defsname)  
+    
+    fout = open(foutname,'w')
+    fout.write(m.colnames()+'\n')
+
+    ntrial = 10000
+
+    for x in xrange(ntrial+1):
+        v = float(x) / ntrial
+        v = mean[grade] + (v - 0.5) * 5.0  # 2.5 logits down and up
+    
+        if x % 100 == 0: print x,'=>',v
+        fout.write(m.one_sim(x,v))
+            
+    fout.close()
+
+
+
+for g in [0]: 
+    run_to_end(g,1)
+
