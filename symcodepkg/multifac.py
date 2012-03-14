@@ -261,6 +261,8 @@ class Multifactor:
         f = self.faclist['*']['fac']
         return f.rawtorasch(f.rawsum)
         
+        
+    ####################################### compute m, sd, max, and min for a list of numbers ##########################    
     def m_sd(self,x):
         sx,sxx = 0.0, 0.0
         minv, maxv = x[0],x[0]
@@ -301,6 +303,8 @@ class Multifactor:
             else: out[k] = {'est': (-9.0,-9.0,0), 'fit': (-9.0,-9.0,0)}
             
         return out
+        
+    ################################################### MAKE OUTPUT REC FROM SIMULATION RESULTS #######################
         
     def str_allest(self,allest):
         locstr = ''
